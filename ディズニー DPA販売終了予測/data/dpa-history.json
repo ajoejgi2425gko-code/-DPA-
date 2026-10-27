@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 3,
+  "datasetUpdatedAt": "2026-10-27",
+  "records": [],
+  "aggregateBenchmarks": [
+    {"park":"tds","attractionId":"frozen","kind":"weekday_median","value":"09:53","sampleDays":51,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"frozen","kind":"weekend_median","value":"09:50","sampleDays":25,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"soaring","kind":"weekday_median","value":"14:06","sampleDays":49,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"soaring","kind":"weekend_median","value":"11:56","sampleDays":25,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"toy","kind":"weekday_median","value":"17:08","sampleDays":49,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"toy","kind":"weekend_median","value":"15:34","sampleDays":25,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"journey","kind":"weekday_median","value":"16:32","sampleDays":49,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"journey","kind":"weekend_median","value":"18:34","sampleDays":25,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"raging","kind":"weekday_median","value":"19:00","sampleDays":36,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"raging","kind":"weekend_median","value":"19:50","sampleDays":19,"sourceName":"TDR Insight","sourceUrl":"https://www.tdrinsight.com/pass-guide?park=tds","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"soaring","kind":"soldout_only_mean","value":"13:48","sampleDays":29,"sourceName":"TDR Waits","sourceUrl":"https://tdr-waits.com/dpa","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"frozen","kind":"soldout_only_mean","value":"09:43","sampleDays":29,"sourceName":"TDR Waits","sourceUrl":"https://tdr-waits.com/dpa","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"journey","kind":"soldout_only_mean","value":"16:17","sampleDays":29,"sourceName":"TDR Waits","sourceUrl":"https://tdr-waits.com/dpa","observedAt":"2026-10-27","sourceType":"aggregate"},
+    {"park":"tds","attractionId":"toy","kind":"soldout_only_mean","value":"17:11","sampleDays":29,"sourceName":"TDR Waits","sourceUrl":"https://tdr-waits.com/dpa","observedAt":"2026-10-27","sourceType":"aggregate"}
+  ],
+  "sourceNotes": [
+    "集計値は日付別の実測記録ではありません。売り切れ確率の学習データに混ぜません。",
+    "各情報源の観測間隔・集計期間が異なります。出典ページと取得日を必ず併記します。"
+  ]
+}
