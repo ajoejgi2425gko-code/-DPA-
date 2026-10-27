@@ -12,6 +12,8 @@
   const DATA_URL = './data/dpa-history.json';
   let dataset = { records: [], aggregateBenchmarks: [], datasetUpdatedAt: null };
   let loaded = false;
+  let fetchState = 'loading';
+  let fetchedAt = null;
 
   function parseTime(value) {
     if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return null;
@@ -77,10 +79,15 @@
     if (!hasEstimate) desc.textContent = '過去の時刻データが不足しているため、順番を推定していません。';
     else if (estimateInfo.kind === 'benchmark') desc.textContent = `過去の${estimateInfo.sourceName}集計の中央値。販売終了・受付終了時刻の目安です。`;
     else desc.textContent = `同じ曜日区分の記録を優先した参考中央値（記録 ${estimateInfo.sampleDays} 件）。${estimateInfo.dayMatched ? '' : '同じ曜日区分の記録が少ないため、全記録を使用。'}`;
+    const strength = document.createElement('span'); strength.className = 'chip';
+    if (!hasEstimate) strength.textContent = '根拠不足';
+    else if ((Number(estimateInfo.sampleDays) || 0) >= 20) strength.textContent = '対象日数が比較的多い';
+    else if ((Number(estimateInfo.sampleDays) || 0) >= 8) strength.textContent = '参考データあり';
+    else strength.textContent = '記録少なめ・慎重に判断';
     const meta = document.createElement('div'); meta.className = 'ride-meta';
     const source = document.createElement('span'); source.className = 'chip'; source.textContent = estimateInfo.kind === 'benchmark' ? `集計対象 ${estimateInfo.sampleDays ?? '不明'} 日` : estimateInfo.kind === 'record' ? `使用記録 ${estimateInfo.sampleDays} 件` : '時刻データなし';
     const kind = document.createElement('span'); kind.className = 'chip'; kind.textContent = estimateInfo.kind === 'benchmark' ? '公開集計' : estimateInfo.kind === 'record' ? '日付別記録から算出' : '比較対象外';
-    meta.append(source, kind); body.append(top, time, desc, meta); article.append(rankEl, body);
+    meta.append(source, kind, strength); body.append(top, time, desc, meta); article.append(rankEl, body);
     return article;
   }
   function render() {
@@ -90,7 +97,7 @@
     const parkData = PARKS[park];
     const query = $('search').value.trim().toLocaleLowerCase('ja');
     const dayLabel = dayType === 'weekend' ? '土日祝日として比較' : '平日として比較';
-    $('day-label').textContent = `${displayDate(date)} · ${dayLabel}`;
+    $('day-label').textContent = `${displayDate(date)} · 曜日区分：${dayLabel.replace('として比較','')}`;
     const rides = parkData.rides.map(([id, name]) => ({ id, name, estimate: estimate(park, id, dayType) }))
       .filter(ride => !query || ride.name.toLocaleLowerCase('ja').includes(query));
     rides.sort((a, b) => {
@@ -104,6 +111,23 @@
     $('count-total').textContent = `${rides.length}施設`;
     $('count-known').textContent = `${known.length}施設`;
     $('updated').textContent = dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明';
+    const updatedDate = dataset.datasetUpdatedAt ? new Date(`${dataset.datasetUpdatedAt}T12:00:00`) : null;
+    const ageDays = updatedDate ? Math.floor((new Date().setHours(12,0,0,0) - updatedDate.getTime()) / 86400000) : null;
+    const freshness = $('freshness');
+    freshness.className = 'freshness';
+    if (fetchState === 'error') {
+      freshness.textContent = 'データ取得に失敗。表示できる場合は保存済みデータの可能性があります。最新性を確認できません。';
+      freshness.classList.add('error-state');
+    } else if (ageDays === null) {
+      freshness.textContent = 'データ更新日を確認できません。時刻の目安は慎重に扱ってください。';
+      freshness.classList.add('stale');
+    } else if (ageDays > 14) {
+      freshness.textContent = `データ更新から ${ageDays} 日経過。古い可能性があるため、順位は参考程度にしてください。`;
+      freshness.classList.add('stale');
+    } else {
+      freshness.textContent = `データ更新から ${Math.max(0, ageDays)} 日 · ${fetchState === 'loaded' ? '共有データの読み込み成功' : 'データ状態確認中'}`;
+    }
+    $('data-counts').textContent = `日付別記録 ${dataset.records.length} 件 · 公開集計 ${dataset.aggregateBenchmarks.length} 件 · データ作成日 ${dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明'}`;
     $('results').replaceChildren();
     if (!rides.length) {
       const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = '一致するアトラクションがありません。検索語を変えてください。'; $('results').append(empty); return;
@@ -117,11 +141,11 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const incoming = await response.json();
       if (!Array.isArray(incoming.records) || !Array.isArray(incoming.aggregateBenchmarks)) throw new Error('データ形式が不正です');
-      dataset = incoming; loaded = true;
-      $('load-status').textContent = `データ読込済み · 日付別記録 ${dataset.records.length} 件 / 公開集計 ${dataset.aggregateBenchmarks.length} 件`;
+      dataset = incoming; loaded = true; fetchState = 'loaded'; fetchedAt = new Date();
+      $('load-status').textContent = `共有データを読み込みました · ${new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})} に取得確認`;
       $('error').classList.add('hidden');
     } catch (error) {
-      console.error('DPA data load failed', error);
+      console.error('DPA data load failed', error); fetchState = 'error';
       $('load-status').textContent = 'データを読み込めませんでした';
       $('error').textContent = 'データファイルを読み込めません。通信状態を確認して再読み込みしてください。';
       $('error').classList.remove('hidden');
