@@ -9,11 +9,10 @@
       ['frozen','アナとエルサのフローズンジャーニー'], ['tangled','ラプンツェルのランタンフェスティバル'], ['peterpan','ピーターパンのネバーランドアドベンチャー'], ['soaring','ソアリン：ファンタスティック・フライト'], ['toy','トイ・ストーリー・マニア！'], ['journey','センター・オブ・ジ・アース'], ['raging','レイジングスピリッツ']
     ]}
   };
-  const DATA_URL = './data/dpa-history.json';
+  const DATA_URL = new URL('./data/dpa-history.json', window.location.href).toString();
   let dataset = { records: [], aggregateBenchmarks: [], datasetUpdatedAt: null };
-  let loaded = false;
   let fetchState = 'loading';
-  let fetchedAt = null;
+
 
   function parseTime(value) {
     if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return null;
@@ -95,11 +94,11 @@
     const date = $('visit-date').value;
     const dayType = selectedDayType();
     const parkData = PARKS[park];
-    const query = $('search').value.trim().toLocaleLowerCase('ja');
+    const selectedRide = $('search').value;
     const dayLabel = dayType === 'weekend' ? '土日祝日として比較' : '平日として比較';
     $('day-label').textContent = `${displayDate(date)} · 曜日区分：${dayLabel.replace('として比較','')}`;
     const rides = parkData.rides.map(([id, name]) => ({ id, name, estimate: estimate(park, id, dayType) }))
-      .filter(ride => !query || ride.name.toLocaleLowerCase('ja').includes(query));
+      .filter(ride => !selectedRide || ride.id === selectedRide);
     rides.sort((a, b) => {
       const at = a.estimate.time, bt = b.estimate.time;
       if (at === null && bt === null) return a.name.localeCompare(b.name, 'ja');
@@ -133,40 +132,65 @@
       const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = '一致するアトラクションがありません。検索語を変えてください。'; $('results').append(empty); return;
     }
     rides.forEach((ride, index) => $('results').append(makeRideCard(ride, index + 1, ride.estimate, ride.estimate.time !== null, parkData.name)));
-    $('data-details').textContent = `同梱データ更新日：${displayDate(dataset.datasetUpdatedAt)}。日付別記録 ${dataset.records.length} 件、公開集計 ${dataset.aggregateBenchmarks.length} 件。集計値と日付別記録は区別して扱っています。`;
   }
   async function loadData() {
     try {
-      const response = await fetch(DATA_URL, { cache: 'no-store' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      let response;
+      try { response = await fetch(`${DATA_URL}?v=9`, { cache: 'no-store', signal: controller.signal }); }
+      finally { clearTimeout(timeoutId); }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const incoming = await response.json();
       if (!Array.isArray(incoming.records) || !Array.isArray(incoming.aggregateBenchmarks)) throw new Error('データ形式が不正です');
-      dataset = incoming; loaded = true; fetchState = 'loaded'; fetchedAt = new Date();
+      dataset = incoming; fetchState = 'loaded';
       $('load-status').textContent = `共有データを読み込みました · ${new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})} に取得確認`;
       $('error').classList.add('hidden');
     } catch (error) {
       console.error('DPA data load failed', error); fetchState = 'error';
       $('load-status').textContent = 'データを読み込めませんでした';
-      $('error').textContent = 'データファイルを読み込めません。通信状態を確認して再読み込みしてください。';
+      const reason = error.name === 'AbortError' ? '通信がタイムアウトしました' : (error.message || '通信エラー');
+      $('error').textContent = `データを読み込めません（${reason}）。ページを再読み込みしてください。改善しない場合は、GitHub Pagesに data/dpa-history.json が公開されているか確認してください。`;
       $('error').classList.remove('hidden');
     }
     render();
   }
+  function populateAttractions() {
+    const select = $('search');
+    if (!select) return;
+    const previous = select.value;
+    const park = PARKS[$('park').value] || PARKS.tdl;
+    select.replaceChildren();
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'すべてのアトラクション';
+    select.append(all);
+    park.rides.forEach(([id, name]) => {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = name;
+      select.append(option);
+    });
+    select.value = park.rides.some(([id]) => id === previous) ? previous : '';
+  }
+
   function init() {
     const now = new Date();
     $('visit-date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     $('refresh').addEventListener('click', render);
-    $('park').addEventListener('change', render);
+    $('park').addEventListener('change', () => { populateAttractions(); render(); });
     $('visit-date').addEventListener('change', () => { if (document.querySelector('input[name="daytype"]:checked')?.value === 'auto') render(); else render(); });
     document.querySelectorAll('input[name="daytype"]').forEach(input => input.addEventListener('change', render));
-    $('search').addEventListener('input', render);
+    $('search').addEventListener('change', render);
     $('reset').addEventListener('click', () => {
       $('visit-date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      $('park').value = 'tdl'; $('search').value = '';
+      $('park').value = 'tdl'; populateAttractions(); $('search').value = '';
       document.querySelector('input[name="daytype"][value="auto"]').checked = true;
       render();
     });
-    render(); loadData();
+    populateAttractions();
+    try { render(); } catch (error) { console.error('Initial render failed', error); $('load-status').textContent = '画面の初期化に失敗しました'; $('error').textContent = `画面の初期化に失敗しました（${error.message || '表示エラー'}）。ページを再読み込みしてください。`; $('error').classList.remove('hidden'); }
+    loadData();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker registration failed', error)));
     }
