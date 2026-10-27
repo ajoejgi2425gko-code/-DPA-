@@ -1,27 +1,17 @@
 {
   "id": "./",
-  "name": "ディズニー DPA販売終了予測",
-  "short_name": "DPA予測",
-  "description": "公開データからDPA販売終了の傾向を参考予測",
+  "name": "DPA購入ナビ｜販売終了傾向から優先順位を確認",
+  "short_name": "DPA購入ナビ",
+  "description": "東京ディズニーリゾートのDPAを過去の販売終了傾向から比較する非公式参考ツール",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#edf5ff",
-  "theme_color": "#173b70",
+  "background_color": "#f3f6fa",
+  "theme_color": "#172f4f",
   "icons": [
-    {
-      "src": "./icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    }
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
