@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '11';
+  const APP_VERSION = '12';
   const $ = id => document.getElementById(id);
   const PARKS = {
     tdl: { name: '東京ディズニーランド', rides: [
@@ -38,10 +38,118 @@
     const mid = Math.floor(sorted.length / 2);
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   }
+  // Japanese public holiday calculation (no external API required).
+  // Includes fixed-date holidays, Happy Monday holidays, equinoxes, citizen holidays,
+  // substitute holidays, and the one-off Olympic/imperial dates in 2019-2021.
+  function dateKey(year, month, day) {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  function vernalEquinoxDay(year) {
+    if (year < 1980 || year > 2099) return null;
+    return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  }
+  function autumnalEquinoxDay(year) {
+    if (year < 1980 || year > 2099) return null;
+    return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  }
+  function nthMonday(year, month, nth) {
+    const firstDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    return 1 + ((8 - (firstDay || 7)) % 7) + (nth - 1) * 7;
+  }
+  function japaneseHolidays(year) {
+    const holidays = new Set();
+    const add = (month, day) => holidays.add(dateKey(year, month, day));
+    const addNthMonday = (month, nth) => add(month, nthMonday(year, month, nth));
+    if (year < 1948) return holidays;
+
+    // New Year's Day and National Foundation Day
+    add(1, 1);
+    if (year >= 1967) add(2, 11);
+    if (year >= 2020) add(2, 23); // Emperor's Birthday
+
+    // Coming of Age Day: Jan 15 until 1999, second Monday since 2000
+    if (year <= 1999) add(1, 15); else addNthMonday(1, 2);
+    // Vernal equinox
+    const vernal = vernalEquinoxDay(year); if (vernal) add(3, vernal);
+
+    add(4, 29); // Greenery Day through 2006; Showa Day since 2007
+    add(5, 3);  // Constitution Memorial Day
+    if (year >= 2007) add(5, 4); // Greenery Day
+    add(5, 5);  // Children's Day
+
+    // Marine Day, with Olympic-year exceptions
+    if (year === 2020) add(7, 23);
+    else if (year === 2021) add(7, 22);
+    else if (year >= 2003) addNthMonday(7, 3);
+    else add(7, 20);
+
+    if (year >= 2016) {
+      if (year === 2020) add(8, 10);
+      else if (year === 2021) add(8, 8);
+      else add(8, 11);
+    }
+
+    // Respect for the Aged Day
+    if (year >= 2003) addNthMonday(9, 3); else add(9, 15);
+    const autumnal = autumnalEquinoxDay(year); if (autumnal) add(9, autumnal);
+
+    // Sports Day / Health and Sports Day
+    if (year === 2020) add(7, 24);
+    else if (year === 2021) add(7, 23);
+    else if (year >= 2000) addNthMonday(10, 2);
+    else add(10, 10);
+
+    add(11, 3); // Culture Day
+    add(11, 23); // Labor Thanksgiving Day
+
+    // One-off holidays surrounding the imperial succession in 2019
+    if (year === 2019) { add(5, 1); add(10, 22); }
+
+    // Citizen holidays: a weekday between two national holidays becomes a holiday.
+    // Iterate to account for consecutive holiday chains.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let month = 1; month <= 12; month++) {
+        const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+        for (let day = 2; day < daysInMonth; day++) {
+          const key = dateKey(year, month, day);
+          if (holidays.has(key)) continue;
+          const prev = dateKey(year, month, day - 1), next = dateKey(year, month, day + 1);
+          const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+          if (weekday !== 0 && holidays.has(prev) && holidays.has(next)) {
+            holidays.add(key); changed = true;
+          }
+        }
+      }
+    }
+
+    // Substitute holiday: when a national holiday falls on Sunday, the next day
+    // that is not already a holiday is observed (rules in effect since 2007).
+    const originals = Array.from(holidays).sort();
+    for (const key of originals) {
+      const [y, m, d] = key.split('-').map(Number);
+      if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 0) continue;
+      let candidate = new Date(Date.UTC(y, m - 1, d + 1));
+      let candidateKey = dateKey(candidate.getUTCFullYear(), candidate.getUTCMonth() + 1, candidate.getUTCDate());
+      while (holidays.has(candidateKey)) {
+        candidate = new Date(candidate.getTime() + 86400000);
+        candidateKey = dateKey(candidate.getUTCFullYear(), candidate.getUTCMonth() + 1, candidate.getUTCDate());
+      }
+      if (candidate.getUTCFullYear() === year) holidays.add(candidateKey);
+    }
+    return holidays;
+  }
+  function isJapaneseHoliday(date) {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const year = Number(date.slice(0, 4));
+    return japaneseHolidays(year).has(date);
+  }
   function dateDayType(date) {
     if (!date) return 'weekday';
-    const day = new Date(`${date}T12:00:00`).getDay();
-    return day === 0 || day === 6 ? 'weekend' : 'weekday';
+    const [year, month, dayOfMonth] = date.split('-').map(Number);
+    const day = new Date(Date.UTC(year, month - 1, dayOfMonth)).getUTCDay();
+    return day === 0 || day === 6 || isJapaneseHoliday(date) ? 'weekend' : 'weekday';
   }
   function selectedDayType() {
     const selected = document.querySelector('input[name="daytype"]:checked')?.value || 'auto';
@@ -123,8 +231,11 @@
     const childHeight = heightRaw !== '' && Number.isFinite(Number(heightRaw)) && Number(heightRaw) >= 50 && Number(heightRaw) <= 220 ? Number(heightRaw) : null;
     const priorityIds = Array.from({length: 5}, (_, i) => $(`priority-${i + 1}`).value).filter(Boolean);
     const priorityOrder = new Map(priorityIds.map((id, index) => [id, index]));
-    const dayLabel = dayType === 'weekend' ? '土日祝日として比較' : '平日として比較';
-    $('day-label').textContent = `${displayDate(date)} · 曜日区分：${dayLabel.replace('として比較','')}`;
+    const mode = document.querySelector('input[name="daytype"]:checked')?.value || 'auto';
+    const dayLabel = mode === 'auto'
+      ? (isJapaneseHoliday(date) ? '祝日（自動判定）' : dateDayType(date) === 'weekend' ? '土日（自動判定）' : '平日（自動判定）')
+      : (dayType === 'weekend' ? '土日祝日扱い（手動）' : '平日扱い（手動）');
+    $('day-label').textContent = `${displayDate(date)} · ${dayLabel}`;
     const rides = parkData.rides.map(([id, name]) => ({ id, name, minHeight: HEIGHT_LIMITS[park]?.[id] || 0, maxHeight: HEIGHT_MAX[park]?.[id] || 0, estimate: estimate(park, id, dayType) }));
     rides.sort((a, b) => {
       const ap = priorityOrder.has(a.id) ? priorityOrder.get(a.id) : Infinity;
