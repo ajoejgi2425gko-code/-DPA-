@@ -23,7 +23,7 @@ DPA購入ナビ v9（動作・表示改善版）
 ------------------
 data/dpa-history.json を共有データとして使います。初期データの更新日、件数、出典は画面の「データの根拠と注意点」に表示されます。
 
-優先順位は、選択した曜日区分に合う公開集計の中央値がある施設ではその値を使い、ない場合は日付別記録の中央値を参考として使います。時刻が早い順に並びます。これは売り切れ時刻の予測や現在の販売状況の表示ではなく、購入順を考えるための参考です。
+優先順位は、選択した曜日区分に合う過去実績の集計による中央値がある施設ではその値を使い、ない場合は日付別記録の中央値を参考として使います。時刻が早い順に並びます。これは売り切れ時刻の予測や現在の販売状況の表示ではなく、購入順を考えるための参考です。
 
 重要な制約
 ----------
@@ -40,7 +40,7 @@ GitHub Pagesへの公開・更新
 2. index.html、app.js、sw.js、manifest.json、icons/、data/ をGitHubリポジトリの公開ルートへアップロードします。フォルダ構成を保ってください。
 3. GitHubリポジトリの Settings > Pages で公開設定を確認します。
 4. 公開URLをスマートフォン／PCで開き、日付・パーク切替、検索、ランキング、データ更新日の表示を確認します。
-5. 既にインストール済みの場合、古い画面が残る場合はページを再読み込みしてください。新しいサービスワーカーのキャッシュ名は dpa-purchase-navi-v9 です。
+5. 既にインストール済みの場合、古い画面が残る場合はページを再読み込みしてください。新しいサービスワーカーのキャッシュ名は dpa-purchase-navi-v10 です。
 
 データの更新
 ------------
@@ -89,4 +89,4 @@ v9の変更
 注意：このZIPはソース一式です。公開済みのGitHub Pagesへ自動反映はしません。ファイルをリポジトリの公開ルートへ置き、公開後に実際の画面で確認してください。
 
 
-V9 changes: removed the expandable sources/method section; changed attraction filter to a park-specific dropdown; added a 12-second data-fetch timeout and more robust initialization error display.
+V10 changes: removed the expandable sources/method section; changed attraction filter to a park-specific dropdown; added a 12-second data-fetch timeout and more robust initialization error display.

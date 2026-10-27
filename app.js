@@ -56,12 +56,12 @@
   }
   function estimate(park, id, dayType) {
     const benchmark = benchmarkFor(park, id, dayType);
-    if (benchmark) return { time: parseTime(benchmark.value), sampleDays: Number(benchmark.sampleDays) || null, sourceName: benchmark.sourceName || '公開集計', kind: 'benchmark' };
+    if (benchmark) return { time: parseTime(benchmark.value), sampleDays: Number(benchmark.sampleDays) || null, sourceName: '過去実績の集計', kind: 'benchmark' };
     const fallback = recordEstimate(park, id, dayType);
     if (fallback.time !== null) return fallback;
     return { time: null, sampleDays: 0, sourceName: '—', kind: 'none' };
   }
-  function makeRideCard(ride, rank, estimateInfo, hasEstimate, parkName) {
+  function makeRideCard(ride, rank, estimateInfo, hasEstimate, parkName, isPrioritySelected) {
     const article = document.createElement('article');
     article.className = 'ride';
     const rankEl = document.createElement('div'); rankEl.className = 'rank'; rankEl.textContent = hasEstimate ? String(rank) : '—';
@@ -69,14 +69,15 @@
     const top = document.createElement('div'); top.className = 'ride-top';
     const title = document.createElement('h3'); title.textContent = ride.name;
     const badge = document.createElement('span'); badge.className = 'badge';
-    if (!hasEstimate) { badge.classList.add('unknown'); badge.textContent = '目安なし'; }
+    if (isPrioritySelected) badge.textContent = '指定した優先順位';
+    else if (!hasEstimate) { badge.classList.add('unknown'); badge.textContent = '目安なし'; }
     else if (rank <= 3) badge.textContent = '先に検討';
     else { badge.classList.add('later'); badge.textContent = '比較候補'; }
     top.append(title, badge);
     const time = document.createElement('div'); time.className = 'ride-time'; time.textContent = hasEstimate ? `約 ${fmtTime(estimateInfo.time)}` : '時刻データ不足';
     const desc = document.createElement('p'); desc.className = 'ride-desc';
     if (!hasEstimate) desc.textContent = '過去の時刻データが不足しているため、順番を推定していません。';
-    else if (estimateInfo.kind === 'benchmark') desc.textContent = `過去の${estimateInfo.sourceName}集計の中央値。販売終了・受付終了時刻の目安です。`;
+    else if (estimateInfo.kind === 'benchmark') desc.textContent = '過去の実績を集計した中央値です。販売終了・受付終了時刻の目安です。';
     else desc.textContent = `同じ曜日区分の記録を優先した参考中央値（記録 ${estimateInfo.sampleDays} 件）。${estimateInfo.dayMatched ? '' : '同じ曜日区分の記録が少ないため、全記録を使用。'}`;
     const strength = document.createElement('span'); strength.className = 'chip';
     if (!hasEstimate) strength.textContent = '根拠不足';
@@ -85,7 +86,7 @@
     else strength.textContent = '記録少なめ・慎重に判断';
     const meta = document.createElement('div'); meta.className = 'ride-meta';
     const source = document.createElement('span'); source.className = 'chip'; source.textContent = estimateInfo.kind === 'benchmark' ? `集計対象 ${estimateInfo.sampleDays ?? '不明'} 日` : estimateInfo.kind === 'record' ? `使用記録 ${estimateInfo.sampleDays} 件` : '時刻データなし';
-    const kind = document.createElement('span'); kind.className = 'chip'; kind.textContent = estimateInfo.kind === 'benchmark' ? '公開集計' : estimateInfo.kind === 'record' ? '日付別記録から算出' : '比較対象外';
+    const kind = document.createElement('span'); kind.className = 'chip'; kind.textContent = estimateInfo.kind === 'benchmark' ? '過去実績の集計' : estimateInfo.kind === 'record' ? '過去の記録から算出' : '比較対象外';
     meta.append(source, kind, strength); body.append(top, time, desc, meta); article.append(rankEl, body);
     return article;
   }
@@ -94,12 +95,15 @@
     const date = $('visit-date').value;
     const dayType = selectedDayType();
     const parkData = PARKS[park];
-    const selectedRide = $('search').value;
+    const priorityIds = Array.from({length: 5}, (_, i) => $(`priority-${i + 1}`).value).filter(Boolean);
+    const priorityOrder = new Map(priorityIds.map((id, index) => [id, index]));
     const dayLabel = dayType === 'weekend' ? '土日祝日として比較' : '平日として比較';
     $('day-label').textContent = `${displayDate(date)} · 曜日区分：${dayLabel.replace('として比較','')}`;
-    const rides = parkData.rides.map(([id, name]) => ({ id, name, estimate: estimate(park, id, dayType) }))
-      .filter(ride => !selectedRide || ride.id === selectedRide);
+    const rides = parkData.rides.map(([id, name]) => ({ id, name, estimate: estimate(park, id, dayType) }));
     rides.sort((a, b) => {
+      const ap = priorityOrder.has(a.id) ? priorityOrder.get(a.id) : Infinity;
+      const bp = priorityOrder.has(b.id) ? priorityOrder.get(b.id) : Infinity;
+      if (ap !== bp) return ap - bp;
       const at = a.estimate.time, bt = b.estimate.time;
       if (at === null && bt === null) return a.name.localeCompare(b.name, 'ja');
       if (at === null) return 1;
@@ -126,19 +130,19 @@
     } else {
       freshness.textContent = `データ更新から ${Math.max(0, ageDays)} 日 · ${fetchState === 'loaded' ? '共有データの読み込み成功' : 'データ状態確認中'}`;
     }
-    $('data-counts').textContent = `日付別記録 ${dataset.records.length} 件 · 公開集計 ${dataset.aggregateBenchmarks.length} 件 · データ作成日 ${dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明'}`;
+    $('data-counts').textContent = `過去の記録 ${dataset.records.length} 件 · 過去実績の集計 ${dataset.aggregateBenchmarks.length} 件 · データ作成日 ${dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明'}`;
     $('results').replaceChildren();
     if (!rides.length) {
       const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = '一致するアトラクションがありません。検索語を変えてください。'; $('results').append(empty); return;
     }
-    rides.forEach((ride, index) => $('results').append(makeRideCard(ride, index + 1, ride.estimate, ride.estimate.time !== null, parkData.name)));
+    rides.forEach((ride, index) => $('results').append(makeRideCard(ride, index + 1, ride.estimate, ride.estimate.time !== null, parkData.name, priorityOrder.has(ride.id))));
   }
   async function loadData() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000);
       let response;
-      try { response = await fetch(`${DATA_URL}?v=9`, { cache: 'no-store', signal: controller.signal }); }
+      try { response = await fetch(`${DATA_URL}?v=10`, { cache: 'no-store', signal: controller.signal }); }
       finally { clearTimeout(timeoutId); }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const incoming = await response.json();
@@ -156,22 +160,35 @@
     render();
   }
   function populateAttractions() {
-    const select = $('search');
-    if (!select) return;
-    const previous = select.value;
     const park = PARKS[$('park').value] || PARKS.tdl;
-    select.replaceChildren();
-    const all = document.createElement('option');
-    all.value = '';
-    all.textContent = 'すべてのアトラクション';
-    select.append(all);
-    park.rides.forEach(([id, name]) => {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = name;
-      select.append(option);
+    const selects = Array.from({length: 5}, (_, i) => $(`priority-${i + 1}`));
+    const previous = selects.map(select => select.value);
+    selects.forEach((select, index) => {
+      select.replaceChildren();
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '選択しない';
+      select.append(blank);
+      park.rides.forEach(([id, name]) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = name;
+        select.append(option);
+      });
+      select.value = park.rides.some(([id]) => id === previous[index]) ? previous[index] : '';
     });
-    select.value = park.rides.some(([id]) => id === previous) ? previous : '';
+    updatePriorityOptions();
+  }
+  function updatePriorityOptions() {
+    const selects = Array.from({length: 5}, (_, i) => $(`priority-${i + 1}`));
+    const chosen = selects.map(select => select.value);
+    selects.forEach((select, index) => {
+      Array.from(select.options).forEach(option => {
+        option.disabled = Boolean(option.value && chosen.includes(option.value) && select.value !== option.value);
+      });
+      // If a duplicate was already selected, keep the earlier priority and clear the later one.
+      if (select.value && chosen.indexOf(select.value) !== index) select.value = '';
+    });
   }
 
   function init() {
@@ -181,10 +198,10 @@
     $('park').addEventListener('change', () => { populateAttractions(); render(); });
     $('visit-date').addEventListener('change', () => { if (document.querySelector('input[name="daytype"]:checked')?.value === 'auto') render(); else render(); });
     document.querySelectorAll('input[name="daytype"]').forEach(input => input.addEventListener('change', render));
-    $('search').addEventListener('change', render);
+    document.querySelectorAll('.priority-select').forEach(select => select.addEventListener('change', () => { updatePriorityOptions(); render(); }));
     $('reset').addEventListener('click', () => {
       $('visit-date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      $('park').value = 'tdl'; populateAttractions(); $('search').value = '';
+      $('park').value = 'tdl'; populateAttractions(); Array.from({length: 5}, (_, i) => $(`priority-${i + 1}`)).forEach(select => { select.value = ''; }); updatePriorityOptions();
       document.querySelector('input[name="daytype"][value="auto"]').checked = true;
       render();
     });
