@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const APP_VERSION = '12';
+  const APP_VERSION = '16';
   const $ = id => document.getElementById(id);
   const PARKS = {
     tdl: { name: '東京ディズニーランド', rides: [
