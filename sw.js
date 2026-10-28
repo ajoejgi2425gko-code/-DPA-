@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dpa-purchase-navi-v12';
+const CACHE_NAME = 'dpa-purchase-navi-v15';
 const APP_FILES = ['./', './index.html', './app.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './data/dpa-history.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)).then(() => self.skipWaiting()));
