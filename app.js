@@ -168,11 +168,11 @@
     const rows = dataset.records.filter(row => row.park === park && row.attractionId === id && row.sourceType === 'observed' && ['sales_ended_or_unavailable', 'near_close_or_sales_ended', 'sold_out'].includes(row.status) && parseTime(row.observedEndTime || row.selloutTime) !== null);
     const matching = rows.filter(row => dateDayType(row.date) === dayType);
     const use = matching.length >= 3 ? matching : rows;
-    return { time: median(use.map(row => parseTime(row.observedEndTime || row.selloutTime))), sampleDays: use.length, dayMatched: matching.length >= 3, sourceName: '日付別記録', kind: 'record' };
+    return { time: median(use.map(row => parseTime(row.observedEndTime || row.selloutTime))), sampleDays: use.length, dayMatched: matching.length >= 3, sourceName: '日付別記録', kind: 'record', timeMeaning: 'unverified' };
   }
   function estimate(park, id, dayType) {
     const benchmark = benchmarkFor(park, id, dayType);
-    if (benchmark) return { time: parseTime(benchmark.value), sampleDays: Number(benchmark.sampleDays) || null, sourceName: '過去実績の集計', kind: 'benchmark' };
+    if (benchmark) return { time: parseTime(benchmark.value), sampleDays: Number(benchmark.sampleDays) || null, sourceName: '過去実績の集計', kind: 'benchmark', timeMeaning: 'unverified' };
     const fallback = recordEstimate(park, id, dayType);
     if (fallback.time !== null) return fallback;
     return { time: null, sampleDays: 0, sourceName: '—', kind: 'none' };
@@ -199,8 +199,8 @@
     const time = document.createElement('div'); time.className = 'ride-time'; time.textContent = hasEstimate ? `約 ${fmtTime(estimateInfo.time)}` : '時刻データ不足';
     const desc = document.createElement('p'); desc.className = 'ride-desc';
     if (!hasEstimate) desc.textContent = '過去の時刻データが不足しているため、順番を推定していません。';
-    else if (estimateInfo.kind === 'benchmark') desc.textContent = '過去の実績を集計した中央値です。販売終了・受付終了時刻の目安です。';
-    else desc.textContent = `同じ曜日区分の記録を優先した参考中央値（記録 ${estimateInfo.sampleDays} 件）。${estimateInfo.dayMatched ? '' : '同じ曜日区分の記録が少ないため、全記録を使用。'}`;
+    else if (estimateInfo.kind === 'benchmark') desc.textContent = '既存の過去実績を集計した参考値です。初回の販売終了時刻と確認できていないため、再販後の終了などが含まれる可能性があります。';
+    else desc.textContent = `未確認の販売終了記録から算出した参考中央値（記録 ${estimateInfo.sampleDays} 件）。初回終了時刻とは限りません。${estimateInfo.dayMatched ? '' : '同じ曜日区分の記録が少ないため、全記録を使用。'}`;
     const strength = document.createElement('span'); strength.className = 'chip';
     if (!hasEstimate) strength.textContent = '根拠不足';
     else if ((Number(estimateInfo.sampleDays) || 0) >= 20) strength.textContent = '対象日数が比較的多い';
@@ -265,7 +265,9 @@
       freshness.textContent = `データ更新から ${ageDays} 日経過しています。古い可能性があるため、順位は参考程度にしてください。`;
       freshness.classList.remove('hidden'); freshness.classList.add('stale');
     }
-    $('data-counts').textContent = `過去の記録 ${dataset.records.length} 件 · 過去実績の集計 ${dataset.aggregateBenchmarks.length} 件 · データ作成日 ${dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明'}`;
+    const verifiedCount = dataset.records.filter(row => row.firstEndVerified === true).length;
+    const unverifiedCount = dataset.records.length - verifiedCount;
+    $('data-counts').textContent = `過去の記録 ${dataset.records.length} 件（初回終了確認済み ${verifiedCount} 件・未確認 ${unverifiedCount} 件） · 過去実績の集計 ${dataset.aggregateBenchmarks.length} 件（参考値） · データ更新日 ${dataset.datasetUpdatedAt ? displayDate(dataset.datasetUpdatedAt) : '不明'}`;
     $('results').replaceChildren();
     if (!rides.length) {
       const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = '一致するアトラクションがありません。検索語を変えてください。'; $('results').append(empty); return;
